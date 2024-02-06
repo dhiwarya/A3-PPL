@@ -7,31 +7,105 @@ on:
     branches: [ "main" ]
 
 jobs:
-  laravel-tests:
-
+  build:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: shivammathur/setup-php@15c43e89cdef867065b0213be354c2841860869e
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.1'
-    - uses: actions/checkout@v3
-    - name: Copy .env
-      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
-    - name: Update composer
-      run: composer update
-    - name: Install Dependencies
-      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-    - name: Generate key
-      run: php artisan key:generate
-    - name: Directory Permissions
-      run: chmod -R 777 storage bootstrap/cache
-    - name: Create Database
+        php-version: '8.3'
+
+    - name: Install dependencies
       run: |
-        mkdir -p database
-        touch database/database.sqlite
-    - name: Execute tests (Unit and Feature tests) via PHPUnit
-      env:
-        DB_CONNECTION: sqlite
-        DB_DATABASE: database/database.sqlite
-      run: vendor/bin/phpunit
+        composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
+
+    - name: Copy environment file
+      run: cp .env.example .env
+
+    - name: Generate application key
+      run: php artisan key:generate
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.3'
+
+    - name: Install dependencies
+      run: |
+        composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
+        composer require --dev phpunit/phpunit
+        composer require --dev roave/security-advisories:dev-latest
+
+    - name: Copy environment file
+      run: cp .env.example .env
+
+    - name: Generate application key
+      run: php artisan key:generate
+
+    - name: Run tests with code coverage
+      run: php vendor/bin/phpunit --coverage-text --coverage-html=coverage
+
+    - name: Upload code coverage report
+      uses: actions/upload-artifact@v2
+      with:
+        name: coverage
+        path: coverage/
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx (optional, but recommended for multi-platform builds)
+      uses: docker/setup-buildx-action@v1
+
+    - name: Log in to Docker Hub
+      run: echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: true
+        tags: rikku18/a3-ppl:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: publish
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Stop and Remove Docker Containers
+        run: |
+          if docker ps -a --format '{{.Names}}' | grep -q '^a3_ppl$'; then
+            docker stop a3_ppl
+            docker rm a3_ppl
+          else
+            echo "Container 'a3_ppl' does not exist."
+          fi
+
+      - name: Deploy with Docker on GCP VM
+        run: |
+          ssh -o StrictHostKeyChecking=no rikzakurnia1802@35.209.237.120 "docker pull rikku18/a3-ppl:latest && docker run --name a3_ppl -d -p 80:80 rikku18/a3-ppl:latest"
