@@ -1,17 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\CounterController;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
-*/
+Route::get('/increment', [CounterController::class, 'increment']);
+Route::get('/decrement', [CounterController::class, 'decrement']);
+
 
 Route::get('/', function () {
     return view('welcome');
@@ -20,3 +14,6 @@ Route::get('/', function () {
 Route::get('/hello-world', function() {
     return "hello world";
 });
+
+Route::get('/counter', [CounterController::class, 'show'])->name('counter.show');
+
