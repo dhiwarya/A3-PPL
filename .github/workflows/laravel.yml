@@ -49,6 +49,9 @@ jobs:
       run: php artisan key:generate
 
     - name: Run tests with code coverage
+      env:
+        DB_PASSWORD: "DhiwaKusumah_30"
+        DB_DATABASE: database/database.sqlite
       run: php vendor/bin/phpunit --coverage-text --coverage-html=coverage
 
     - name: Upload code coverage report
