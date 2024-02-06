@@ -23,6 +23,14 @@ jobs:
       run: |
         composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
 
+    - name: Create Database
+      run: |
+        mkdir -p database
+        touch database/database.sqlite
+        
+    - name: Run database migrations
+      run: php artisan migrate
+      
     - name: Generate application key
       run: php artisan key:generate
 
@@ -44,13 +52,21 @@ jobs:
         composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
         composer require --dev phpunit/phpunit
         composer require --dev roave/security-advisories:dev-latest
-
+        
+    - name: Create Database
+      run: |
+        mkdir -p database
+        touch database/database.sqlite
+        
+    - name: Run database migrations
+      run: php artisan migrate
+    
     - name: Generate application key
       run: php artisan key:generate
 
     - name: Run tests with code coverage
       env:
-        DB_PASSWORD: "DhiwaKusumah_30"
+        DB_CONNECTION: sqlite
         DB_DATABASE: database/database.sqlite
       run: php vendor/bin/phpunit --coverage-text --coverage-html=coverage
 
